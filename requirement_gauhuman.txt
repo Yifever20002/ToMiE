@@ -1,0 +1,6 @@
+mmhuman3d==0.11.0
+tensorboard
+tqdm==4.66.1
+numpy
+omegaconf
+wandb
