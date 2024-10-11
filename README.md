@@ -32,6 +32,12 @@ Install other requirements:
 
 Download the SMPL(-X) from [here](https://github.com/richzhang/PerceptualSimilarity/tree/master/lpips/weights/v0.1) and put it under the main path.
 
+### `Dataset`
+
+For DNA-Rendering dataset, please download it from [here](https://dna-rendering.github.io/inner-download.html). You only need to download the ``xxxx_xx.smc'' and ``xxxx_xx_annots.smc'' files for each case. Our code will automatically preprocess the data during the first run and save the images, bkgd_masks, and model in the corresponding directory.
+
+For ZJU_Mocap dataset, please refer to [mlp_maps](https://github.com/zju3dv/mlp_maps/blob/master/INSTALL.md).
+
 
 ## B. Experiments on I3D-Human Dataset
 The I3D-Human Dataset focuses on capturing variations in clothing appearance under approximately identical poses. Compared with existing benchmarks, we outfit the subjects in loose clothing such as dresses and light jackets and
