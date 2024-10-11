@@ -120,3 +120,25 @@ We also have similar scripts for ZJU_MoCap dataset.
 <img src="https://github.com/Yifever20002/ToMiE/blob/main/images/animating.gif" alt="animating" width="1138">
 
 ## D. Citation
+
+If you find our work useful, please cite it as
+
+    @misc{zhan2024tomiemodulargrowthenhanced,
+      title={ToMiE: Towards Modular Growth in Enhanced SMPL Skeleton for 3D Human with Animatable Garments}, 
+      author={Yifan Zhan and Qingtian Zhu and Muyao Niu and Mingze Ma and Jiancheng Zhao and Zhihang Zhong and Xiao Sun and Yu Qiao and Yinqiang Zheng},
+      year={2024},
+      eprint={2410.08082},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV},
+      url={https://arxiv.org/abs/2410.08082}, 
+    }
+
+## E. Acknowledgments
+
+We appreciate for [GauHuman](https://github.com/skhu101/GauHuman), upon which we build our code implementation. 
+We would also appreciate the code release of 
+[3DGS-Avatar](https://github.com/mikeqzy/3dgs-avatar-release),
+[GART](https://github.com/JiahuiLei/GART), 
+[Im4D](https://github.com/zju3dv/im4d)
+for comparison and evaluation.
+
