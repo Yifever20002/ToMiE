@@ -36,10 +36,10 @@ Download the SMPL(-X) from [here](https://drive.google.com/drive/folders/1ULFP2r
 
 For DNA-Rendering dataset, please download it from [here](https://dna-rendering.github.io/inner-download.html). You only need to download the ``xxxx_xx.smc'' and ``xxxx_xx_annots.smc'' files for each case. Our code will automatically preprocess the data during the first run and save the images, bkgd_masks, and model in the corresponding directory.
 
-For ZJU_Mocap dataset, please refer to [mlp_maps](https://github.com/zju3dv/mlp_maps/blob/master/INSTALL.md).
+For ZJU_MoCap dataset, please refer to [mlp_maps](https://github.com/zju3dv/mlp_maps/blob/master/INSTALL.md).
 
 
-## B. Experiments on DNA-Rendering Dataset
+## B. Experiments
 
 ### Training
 
@@ -81,3 +81,14 @@ Here is a description of the ``dna_x_xxxx_xx.sh'' file:
         --port 6005 \
         --is_continue \
         --wandb_disable
+
+We also have similar scripts for ZJU_MoCap dataset.
+
+## B. Results
+
+### Monocular Rendering
+
+<img src="https://github.com/Yifever20002/ToMiE/blob/main/images/mono/0007_04_gt%5B00h00m00s-00h00m06s%5D.gif" alt="m0007_04_gt" width="552" height="752">  
+<img src="https://github.com/Yifever20002/ToMiE/blob/main/images/mono/0007_04_tomie%5B00h00m00s-00h00m06s%5D.gif" alt="m0007_04_to" width="552" height="752">
+<img src="https://github.com/Yifever20002/ToMiE/blob/main/images/mono/0007_04_gauhuman%5B00h00m00s-00h00m06s%5D.gif" alt="m0007_04_ga" width="552" height="752">
+
