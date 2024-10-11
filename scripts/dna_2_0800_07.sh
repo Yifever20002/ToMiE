@@ -1,4 +1,4 @@
-export CUDA_HOME=/usr/local/cuda
+export CUDA_HOME=/usr/local/cuda 
 export CUDA_VISIBLE_DEVICES=2
 # ok
 id_name=2_0800_07

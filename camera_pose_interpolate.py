@@ -1,6 +1,6 @@
 import numpy as np
 import glob
-import os
+import os 
 from scipy.spatial.transform import Rotation as R
 from scipy.spatial.transform import Slerp
 from scipy.interpolate import interp1d

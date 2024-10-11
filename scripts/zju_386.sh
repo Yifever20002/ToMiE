@@ -1,4 +1,4 @@
-export CUDA_HOME=/usr/local/cuda
+export CUDA_HOME=/usr/local/cuda 
 export CUDA_VISIBLE_DEVICES=2
 
 id_name=CoreView_386
