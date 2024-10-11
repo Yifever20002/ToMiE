@@ -53,16 +53,16 @@ Here is a description of the ``dna_x_xxxx_xx.sh'' file:
 
     export CUDA_HOME=/usr/local/cuda
     export CUDA_VISIBLE_DEVICES=2
-    id_name=2_0041_10
+    id_name=2_0041_10                                    # case id, DNA-part2_id-number_sequence-number
     
-    dataset=../dataset/DNA-Rendering/${id_name}/
+    dataset=../dataset/DNA-Rendering/${id_name}/         # dataset path, change to yours
     iterations=30000
-    smpl_type=simple_smplx
-    use_extrapose_tuner=True
-    non_rigid_flag=True
-    non_rigid_use_extra_condition_flag=False
-    joints_opt_flag=True
-    extra_joints_batch=-1
+    smpl_type=simple_smplx                               # we use a simplified SMPLX without MANO
+    use_extrapose_tuner=True                             # modular growth or not
+    non_rigid_flag=True                                  # non-rigid deformation or not
+    non_rigid_use_extra_condition_flag=False             
+    joints_opt_flag=True                                 # optimizing joint locations or not
+    extra_joints_batch=-1                                # fix joint number or gradient guided
     
     exp_name=dna_github/${id_name}_uet_${use_extrapose_tuner}_nr_\
     ${non_rigid_flag}_nruec_${non_rigid_use_extra_condition_flag}_jo_${joints_opt_flag}_ejb_${extra_joints_batch}
