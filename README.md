@@ -40,27 +40,14 @@ For ZJU_Mocap dataset, please refer to [mlp_maps](https://github.com/zju3dv/mlp_
 
 
 ## B. Experiments on DNA-Rendering Dataset
-The I3D-Human Dataset focuses on capturing variations in clothing appearance under approximately identical poses. Compared with existing benchmarks, we outfit the subjects in loose clothing such as dresses and light jackets and
-encourage movements involving acceleration or deceleration, such as sudden stops
-after spinning, swaying, and flapping sleeves. Our capturing equipment consists of
-10 DJI Osmo Action cameras, shooting at a frame rate of 100fps while synchronized
-with an audio signal. The final processed dataset records 10k frames of sequence
-from 6 subjects in total. Click [here](https://drive.google.com/drive/folders/1bj1pmr_FZE5ClR5ZCWpXD79ESaM8Ivvg?usp=sharing) to download our I3D-Human Dataset and copy it to /path/to/Dyco's parent/dataset/.
 
-![image](https://github.com/Yifever20002/Dyco/blob/main/images/dataset.png)
+### Training
 
+    sh scripts/dna_2_0041_10.sh
 
-### Train and Test
+#### Rendering
 
-#### Baseine
-
-    sh scripts/I3D-Human/ID1_1/ID1_1_humannerf.sh
-    sh scripts/I3D-Human/ID1_1/ID1_1_humannerf_test.sh
-
-#### + Conditions
-
-    sh scripts/I3D-Human/ID1_1/ID1_1_posedelta.sh
-    sh scripts/I3D-Human/ID1_1/ID1_1_posedelta_test.sh
+    sh scripts/dna_2_0041_10_render.sh
 
 You can also download our pretrained models [here](https://drive.google.com/drive/folders/1bj1pmr_FZE5ClR5ZCWpXD79ESaM8Ivvg?usp=sharing). Just put the "experiments" under /path/to/Dyco/experiments and you can simply run
 
