@@ -28,7 +28,7 @@ Install other requirements:
     pip install -r requirement_gauhuman.txt
 
 
-### `Download SMPL model`
+### `Download SMPL(-X) model`
 
 Download the SMPL(-X) from [here](https://drive.google.com/drive/folders/1ULFP2r1RLq5dBrvkK_R_4MTMOB8ej2V4?usp=drive_link) and put it under the main path.
 
@@ -39,7 +39,7 @@ For DNA-Rendering dataset, please download it from [here](https://dna-rendering.
 For ZJU_Mocap dataset, please refer to [mlp_maps](https://github.com/zju3dv/mlp_maps/blob/master/INSTALL.md).
 
 
-## B. Experiments on I3D-Human Dataset
+## B. Experiments on DNA-Rendering Dataset
 The I3D-Human Dataset focuses on capturing variations in clothing appearance under approximately identical poses. Compared with existing benchmarks, we outfit the subjects in loose clothing such as dresses and light jackets and
 encourage movements involving acceleration or deceleration, such as sudden stops
 after spinning, swaying, and flapping sleeves. Our capturing equipment consists of
