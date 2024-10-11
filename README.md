@@ -45,7 +45,7 @@ For ZJU_Mocap dataset, please refer to [mlp_maps](https://github.com/zju3dv/mlp_
 
     sh scripts/dna_2_0041_10.sh
 
-#### Rendering
+### Rendering
 
     sh scripts/dna_2_0041_10_render.sh
 
