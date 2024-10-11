@@ -3,7 +3,7 @@
 >ToMiE: Towards Modular Growth in Enhanced SMPL Skeleton for 3D Human with Animatable Garments\
 >[Yifan Zhan](https://yifever20002.github.io/), [Qingtian Zhu](https://qtzhu.me/), [Muyao Niu](https://myniuuu.github.io/), Mingze Ma, Jiancheng Zhao, [Zhihang Zhong](https://zzh-tech.github.io/), Xiao Sun, Yu Qiao, Yinqiang Zheng\
 
-![image](https://github.com/Yifever20002/Dyco/blob/main/images/Dyco.PNG)
+![image](https://github.com/Yifever20002/ToMiE/blob/main/images/teaser.png)
 
 ## A. Prerequisite
 ### `Configure environment`
