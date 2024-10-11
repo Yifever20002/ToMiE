@@ -12,20 +12,21 @@ In this paper, we highlight a critical yet often overlooked factor in most 3D hu
 ### `Configure environment`
 Create a virtual environment and install the required packages 
 
-For Cuda11.3:
+    conda create -n tomie python=3.7
+    conda activate tomie
+    pip install -r requirements.txt
 
-    conda create --name Dyco python=3.7 && conda activate Dyco
-    pip install torch==1.12.1+cu113 torchvision==0.13.1+cu113 torchaudio==0.12.1 --extra-index-url https://download.pytorch.org/whl/cu113
+Install submodules:
 
-For Cuda11.8:
-
-    conda create --name Dyco python=3.8 && conda activate Dyco
-    pip install torch==2.0.0 torchvision==0.15.1 torchaudio==2.0.1 --index-url https://download.pytorch.org/whl/cu118
+    export CUDA_HOME=/usr/local/cuda
+    pip install submodules/depth-diff-gaussian-rasterization
+    pip install submodules/simple-knn
 
 Install other requirements:
 
-    pip install -r requirements.txt
-    pip install ninja git+https://github.com/NVlabs/tiny-cuda-nn/#subdirectory=bindings/torch
+    pip install --upgrade https://github.com/unlimblue/KNN_CUDA/releases/download/0.2/KNN_CUDA-0.2-py3-none-any.whl
+    pip install -r requirement_gauhuman.txt
+
 
 ### `Download SMPL model`
 
