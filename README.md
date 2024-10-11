@@ -142,3 +142,25 @@ We would also appreciate the code release of
 [Im4D](https://github.com/zju3dv/im4d)
 for comparison and evaluation.
 
+Please also cite SMPL(-X) following
+
+    @article{SMPL:2015,
+      author = {Loper, Matthew and Mahmood, Naureen and Romero, Javier and Pons-Moll, Gerard and Black, Michael J.},
+      title = {{SMPL}: A Skinned Multi-Person Linear Model},
+      journal = {ACM Trans. Graphics (Proc. SIGGRAPH Asia)},
+      month = oct,
+      number = {6},
+      pages = {248:1--248:16},
+      publisher = {ACM},
+      volume = {34},
+      year = {2015}
+    }
+
+    @inproceedings{SMPL-X:2019,
+      title = {Expressive Body Capture: {3D} Hands, Face, and Body from a Single Image},
+      author = {Pavlakos, Georgios and Choutas, Vasileios and Ghorbani, Nima and Bolkart, Timo and Osman, Ahmed A. A. and Tzionas, Dimitrios and Black, Michael J.},
+      booktitle = {Proceedings IEEE Conf. on Computer Vision and Pattern Recognition (CVPR)},
+      pages     = {10975--10985},
+      year = {2019}
+    }
+
