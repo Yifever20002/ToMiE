@@ -101,3 +101,18 @@ We also have similar scripts for ZJU_MoCap dataset.
 
 <img src="https://github.com/Yifever20002/ToMiE/blob/main/images/mono/0811_06_gt.gif" alt="m0811_06_gt" width="276" height="376"> <img src="https://github.com/Yifever20002/ToMiE/blob/main/images/mono/0811_06_tomie.gif" alt="m0811_06_to" width="276" height="376"> <img src="https://github.com/Yifever20002/ToMiE/blob/main/images/mono/0811_06_gauhuman.gif" alt="m0811_06_ga" width="276" height="376">
 
+### 360° Rendering
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+**Ground Truth** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+**ToMiE** &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+**Gauhuman**
+
+<img src="https://github.com/Yifever20002/ToMiE/blob/main/images/mono/0007_04_gt.gif" alt="m0007_04_gt" width="276" height="376"> <img src="https://github.com/Yifever20002/ToMiE/blob/main/images/mono/0007_04_tomie.gif" alt="m0007_04_to" width="276" height="376"> <img src="https://github.com/Yifever20002/ToMiE/blob/main/images/mono/0007_04_gauhuman.gif" alt="m0007_04_ga" width="276" height="376">
+
+<img src="https://github.com/Yifever20002/ToMiE/blob/main/images/mono/0041_10_gt.gif" alt="m0041_10_gt" width="276" height="376"> <img src="https://github.com/Yifever20002/ToMiE/blob/main/images/mono/0041_10_tomie.gif" alt="m0041_10_to" width="276" height="376"> <img src="https://github.com/Yifever20002/ToMiE/blob/main/images/mono/0041_10_gauhuman.gif" alt="m0041_10_ga" width="276" height="376">
+
+<img src="https://github.com/Yifever20002/ToMiE/blob/main/images/mono/0800_07_gt.gif" alt="m0800_07_gt" width="276" height="376"> <img src="https://github.com/Yifever20002/ToMiE/blob/main/images/mono/0800_07_tomie.gif" alt="m0800_07_to" width="276" height="376"> <img src="https://github.com/Yifever20002/ToMiE/blob/main/images/mono/0800_07_gauhuman.gif" alt="m0800_07_ga" width="276" height="376">
+
+<img src="https://github.com/Yifever20002/ToMiE/blob/main/images/mono/0811_06_gt.gif" alt="m0811_06_gt" width="276" height="376"> <img src="https://github.com/Yifever20002/ToMiE/blob/main/images/mono/0811_06_tomie.gif" alt="m0811_06_to" width="276" height="376"> <img src="https://github.com/Yifever20002/ToMiE/blob/main/images/mono/0811_06_gauhuman.gif" alt="m0811_06_ga" width="276" height="376">
+
