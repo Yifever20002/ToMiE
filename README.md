@@ -88,5 +88,7 @@ We also have similar scripts for ZJU_MoCap dataset.
 
 ### Monocular Rendering
 
-<img src="https://github.com/Yifever20002/ToMiE/blob/main/images/mono/0007_04_gt%5B00h00m00s-00h00m06s%5D.gif" alt="m0007_04_gt" width="552" height="752"> <img src="https://github.com/Yifever20002/ToMiE/blob/main/images/mono/0007_04_tomie%5B00h00m00s-00h00m06s%5D.gif" alt="m0007_04_to" width="552" height="752"> <img src="https://github.com/Yifever20002/ToMiE/blob/main/images/mono/0007_04_gauhuman%5B00h00m00s-00h00m06s%5D.gif" alt="m0007_04_ga" width="552" height="752">
+<img src="https://github.com/Yifever20002/ToMiE/blob/main/images/mono/0007_04_gt%5B00h00m00s-00h00m06s%5D.gif" alt="m0007_04_gt" width="276" height="376">
+<img src="https://github.com/Yifever20002/ToMiE/blob/main/images/mono/0007_04_tomie%5B00h00m00s-00h00m06s%5D.gif" alt="m0007_04_to" width="276" height="376">
+<img src="https://github.com/Yifever20002/ToMiE/blob/main/images/mono/0007_04_gauhuman%5B00h00m00s-00h00m06s%5D.gif" alt="m0007_04_ga" width="276" height="376">
 
