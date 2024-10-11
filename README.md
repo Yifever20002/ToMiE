@@ -117,5 +117,5 @@ We also have similar scripts for ZJU_MoCap dataset.
 
 ### Garments Animating
 
-<img src="https://github.com/Yifever20002/ToMiE/blob/main/images/animating.gif" alt="animating" width="1138" height="640">
+<img src="https://github.com/Yifever20002/ToMiE/blob/main/images/animating.gif" alt="animating" width="1138">
 
