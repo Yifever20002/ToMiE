@@ -25,7 +25,7 @@ class Scene:
     gaussians : GaussianModel
 
     def __init__(self, args : ModelParams, gaussians : GaussianModel, \
-                 load_iteration=None, is_continue=None, shuffle=True, resolution_scales=[1.0]):
+                 load_iteration=None, is_continue=None, shuffle=True, mono_test=None, resolution_scales=[1.0]):
         """b
         :param path: Path to colmap scene main folder.
         """
@@ -48,7 +48,7 @@ class Scene:
         elif os.path.exists(os.path.join(args.source_path, "transforms_train.json")):
             print("Found transforms_train.json file, assuming Blender data set!")
             scene_info = sceneLoadTypeCallbacks["Blender"](args.source_path, args.white_background, args.eval)
-        elif 'ZJU_Mocap' in args.source_path: #os.path.exists(os.path.join(args.source_path, "annots.npy")):
+        elif 'zju_mocap' in args.source_path: #os.path.exists(os.path.join(args.source_path, "annots.npy")):
             print("Found annots.json file, assuming ZJU_MoCap_refine data set!")
             scene_info = sceneLoadTypeCallbacks["ZJU_MoCap_refine"](args.source_path, args.white_background, args.exp_name, args.eval)
         elif 'monocap' in args.source_path:
@@ -56,7 +56,10 @@ class Scene:
             scene_info = sceneLoadTypeCallbacks["MonoCap"](args.source_path, args.white_background, args.exp_name, args.eval)
         elif 'DNA-Rendering' in args.source_path:
             print("assuming dna_rendering data set!")
-            scene_info = sceneLoadTypeCallbacks["dna_rendering"](args.source_path, args.white_background, args.exp_name, args.eval, args)
+            scene_info = sceneLoadTypeCallbacks["dna_rendering"](args.source_path, args.white_background, args.exp_name, args.eval, args, mono_test)
+        elif 'ToMiE' in args.source_path: #os.path.exists(os.path.join(args.source_path, "annots.npy")):
+            print("assuming ToMiE data set!")
+            scene_info = sceneLoadTypeCallbacks["ToMiE"](args.source_path, args.white_background, args.exp_name, args.eval)
         else:
             assert False, "Could not recognize scene type!"
 
@@ -105,6 +108,10 @@ class Scene:
                     self.gaussians.pose_decoder.load_state_dict(ckpt['pose_decoder'])
                     self.gaussians.lweight_offset_decoder.load_state_dict(ckpt['lweight_offset_decoder'])
                     self.gaussians.extrapose_tuner.load_state_dict(ckpt['extrapose_tuner'])
+                    if self.gaussians.non_rigid_flag:
+                        self.gaussians.non_rigid_deformer.load_state_dict(ckpt['non_rigid_deformer'])
+                    if self.gaussians.joints_opt_flag:
+                        self.gaussians.joints_deformer.load_state_dict(ckpt['joints_deformer'])
 
     def save(self, iteration):
         point_cloud_path = os.path.join(self.model_path, "point_cloud/iteration_{}".format(iteration))
@@ -113,7 +120,7 @@ class Scene:
         if self.gaussians.motion_offset_flag:
             model_path = os.path.join(self.model_path, "mlp_ckpt", "iteration_" + str(iteration), "ckpt.pth")
             mkdir_p(os.path.dirname(model_path))
-            torch.save({
+            save_dict = {
                 'iter': iteration,
                 'num_extra_joints': self.gaussians.num_extra_joints,
                 'extra_joints': self.gaussians.extra_joints,
@@ -121,7 +128,15 @@ class Scene:
                 'pose_decoder': self.gaussians.pose_decoder.state_dict(),
                 'lweight_offset_decoder': self.gaussians.lweight_offset_decoder.state_dict(),
                 'extrapose_tuner': self.gaussians.extrapose_tuner.state_dict(),
-            }, model_path)
+            }
+            
+            if self.gaussians.non_rigid_flag:
+                save_dict['non_rigid_deformer'] = self.gaussians.non_rigid_deformer.state_dict()
+              
+            if self.gaussians.joints_opt_flag:
+                save_dict['joints_deformer'] = self.gaussians.joints_deformer.state_dict()
+
+            torch.save(save_dict, model_path)
 
     def getTrainCameras(self, scale=1.0):
         return self.train_cameras[scale]

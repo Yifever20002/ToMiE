@@ -26,6 +26,7 @@ import numpy as np
 from utils.image_utils import psnr
 from utils.loss_utils import ssim
 import lpips
+import imageio
 loss_fn_vgg = lpips.LPIPS(net='vgg').to(torch.device('cuda', torch.cuda.current_device()))
 
 def str2bool(v):
@@ -42,26 +43,34 @@ def str2bool(v):
 def render_set(model_path, name, iteration, views, gaussians, pipeline, background, vis_extrapose):
     render_path = os.path.join(model_path, name, "ours_{}".format(iteration), "renders")
     gts_path = os.path.join(model_path, name, "ours_{}".format(iteration), "gt")
+    bkgd_mask_path = os.path.join(model_path, name, "ours_{}".format(iteration), "bkgd_mask")
+    attention_mask_path = os.path.join(model_path, name, "ours_{}".format(iteration), "attention_mask")
 
     makedirs(render_path, exist_ok=True)
     makedirs(gts_path, exist_ok=True)
+    makedirs(bkgd_mask_path, exist_ok=True)
+    makedirs(attention_mask_path, exist_ok=True)
 
     # Load data (deserialize)
-    with open(model_path + '/smpl_rot/' + f'iteration_{iteration}/' + 'smpl_rot.pickle', 'rb') as handle:
-        smpl_rot = pickle.load(handle)
+    # with open(model_path + '/smpl_rot/' + f'iteration_{iteration}/' + 'smpl_rot.pickle', 'rb') as handle:
+    #     smpl_rot = pickle.load(handle)
 
     rgbs = []
     rgbs_gt = []
+    bkgd_masks = []
+    attention_masks = []
     extra_vrecs = []
+    alphas = []
     elapsed_time = 0
 
     for _, view in enumerate(tqdm(views, desc="Rendering progress")):
+        
         gt = view.original_image[0:3, :, :].cuda()
+        
         bound_mask = view.bound_mask
         # not use bound mask
         bound_mask = bound_mask.fill_(1)
-
-        transforms, translation = smpl_rot[name][view.pose_id]['transforms'], smpl_rot[name][view.pose_id]['translation']
+        # transforms, translation = smpl_rot[name][view.pose_id]['transforms'], smpl_rot[name][view.pose_id]['translation']
         
         # Start timer
         start_time = time.time()
@@ -69,8 +78,13 @@ def render_set(model_path, name, iteration, views, gaussians, pipeline, backgrou
         # do not give transform
         transforms, translation = None, None
         render_output = render(view, gaussians, pipeline, background, \
-                        transforms=transforms, translation=translation, test=True, vis_extrapose=vis_extrapose)
+                        transforms=transforms, translation=translation, \
+                        test=True, vis_extrapose=vis_extrapose, get_mask_attention=False)#, fixed_pose=views[20])
         rendering = render_output["render"]
+        attention_mask = render_output["render_mask_attention"]
+        alpha = render_output["render_alpha"]
+        
+        attention_masks.append(attention_mask)
         
         # end time
         end_time = time.time()
@@ -80,14 +94,20 @@ def render_set(model_path, name, iteration, views, gaussians, pipeline, backgrou
         rendering.permute(1,2,0)[bound_mask[0]==0] = 0 if background.sum().item() == 0 else 1
 
         rgbs.append(rendering)
+        alphas.append(alpha)
         rgbs_gt.append(gt)
+        
+        bkgd_mask = view.bkgd_mask
+        # bkgd_mask = bkgd_mask.squeeze()
+        # bkgd_mask = (bkgd_mask > 0.).int()
+        # bkgd_mask = bkgd_mask.numpy().astype(np.uint8) * 255
+        bkgd_masks.append(bkgd_mask)
       
         if vis_extrapose:
             extra_vrec = render_output["extra_vrec"]
             extra_vrecs.append(extra_vrec)
-    print(extra_vrecs)
-    assert False
-    if len(extra_vrecs):
+
+    if len(extra_vrecs) and extra_vrecs[0] is not None:
         import matplotlib.pyplot as plt
         
         hist_path = os.path.join(model_path, name, "ours_{}".format(iteration), "joint_hist")
@@ -162,20 +182,36 @@ def render_set(model_path, name, iteration, views, gaussians, pipeline, backgrou
     psnrs = 0.0
     ssims = 0.0
     lpipss = 0.0
-
+    gt_frames = []
+    render_frames = []
     for id in range(len(views)):
         rendering = rgbs[id]
         gt = rgbs_gt[id]
+        bkgd_mask = bkgd_masks[id]
+        alpha = alphas[id]
+        #attention_mask = attention_masks[id]
+        
         rendering = torch.clamp(rendering, 0.0, 1.0)
         gt = torch.clamp(gt, 0.0, 1.0)
+        bkgd_mask = torch.clamp(bkgd_mask, 0.0, 1.0)
+        #attention_mask = torch.clamp(attention_mask, 0.0, 1.0)
+        
         torchvision.utils.save_image(rendering, os.path.join(render_path, '{0:05d}'.format(id) + ".png"))
         torchvision.utils.save_image(gt, os.path.join(gts_path, '{0:05d}'.format(id) + ".png"))
+        torchvision.utils.save_image(bkgd_mask, os.path.join(bkgd_mask_path, '{0:05d}'.format(id) + ".png"))
+        #torchvision.utils.save_image(attention_mask, os.path.join(attention_mask_path, '{0:05d}'.format(id) + ".png"))
+        
+        gt_frames.append(imageio.imread(os.path.join(gts_path, '{0:05d}'.format(id) + ".png")))
+        render_frames.append(imageio.imread(os.path.join(render_path, '{0:05d}'.format(id) + ".png")))
 
         # metrics
         psnrs += psnr(rendering, gt).mean().double()
         ssims += ssim(rendering, gt).mean().double()
         lpipss += loss_fn_vgg(rendering, gt).mean().double()
 
+    imageio.mimwrite(os.path.join(gts_path, 'video.mp4'), gt_frames, fps=15)
+    imageio.mimwrite(os.path.join(render_path, 'video.mp4'), render_frames, fps=15)
+    
     psnrs /= len(views)   
     ssims /= len(views)
     lpipss /= len(views)
@@ -183,11 +219,14 @@ def render_set(model_path, name, iteration, views, gaussians, pipeline, backgrou
     # evalution metrics
     print("\n[ITER {}] Evaluating {} #{}: PSNR {} SSIM {} LPIPS {}".format(iteration, name, len(views), psnrs, ssims, lpipss))
 
-def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParams, skip_train : bool, skip_test : bool, vis_extrapose : bool):
+def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParams, skip_train : bool, \
+                skip_test : bool, mono_test : bool, non_rigid_flag, non_rigid_use_extra_condition_flag, \
+                joints_opt_flag, vis_extrapose : bool):
     with torch.no_grad():
         gaussians = GaussianModel(dataset.sh_degree, dataset.smpl_type, dataset.motion_offset_flag, \
+                                  non_rigid_flag, non_rigid_use_extra_condition_flag, joints_opt_flag, \
                                   dataset.actor_gender, model_path=dataset.model_path, load_iteration=iteration)
-        scene = Scene(dataset, gaussians, load_iteration=iteration, shuffle=False)
+        scene = Scene(dataset, gaussians, load_iteration=iteration, shuffle=False, mono_test=mono_test)
 
         bg_color = [1,1,1] if dataset.white_background else [0, 0, 0]
         background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")
@@ -197,8 +236,12 @@ def render_sets(dataset : ModelParams, iteration : int, pipeline : PipelineParam
                 scene.getTrainCameras(), gaussians, pipeline, background, vis_extrapose)
 
         if not skip_test:
-             render_set(dataset.model_path, "test", scene.loaded_iter, \
-                scene.getTestCameras(), gaussians, pipeline, background, vis_extrapose)
+            if mono_test:
+                 render_set(dataset.model_path, "test_mono", scene.loaded_iter, \
+                    scene.getTestCameras(), gaussians, pipeline, background, vis_extrapose)
+            else:
+                render_set(dataset.model_path, "test", scene.loaded_iter, \
+                           scene.getTestCameras(), gaussians, pipeline, background, vis_extrapose)
 
 if __name__ == "__main__":
     # Set up command line argument parser
@@ -208,14 +251,23 @@ if __name__ == "__main__":
     parser.add_argument("--iteration", default=-1, type=int)
     parser.add_argument("--skip_train", action="store_true")
     parser.add_argument("--skip_test", action="store_true")
+    parser.add_argument("--mono_test", action="store_true")
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--vis_extrapose", action="store_true")
     parser.add_argument("--use_extrapose_tuner", type=str2bool, nargs='?', const=True, default=False,
                         help="Activate extrapose tuner (default: False)")
+    parser.add_argument("--non_rigid_flag", type=str2bool, nargs='?', const=True, default=False,
+                        help="Activate non-rigid MLP (default: False)")
+    parser.add_argument("--non_rigid_use_extra_condition_flag", type=str2bool, nargs='?', const=True, default=False,
+                        help="Activate non-rigid extra condition (default: False)")
+    parser.add_argument("--joints_opt_flag", type=str2bool, nargs='?', const=True, default=False,
+                        help="Activate joint optimization (default: False)")
     args = get_combined_args(parser)
     print("Rendering " + args.model_path)
 
     # Initialize system state (RNG)
     safe_state(args.quiet)
 
-    render_sets(model.extract(args), args.iteration, pipeline.extract(args), args.skip_train, args.skip_test, args.vis_extrapose)
+    render_sets(model.extract(args), args.iteration, pipeline.extract(args), args.skip_train, args.skip_test, \
+                args.mono_test, args.non_rigid_flag, args.non_rigid_use_extra_condition_flag, \
+                args.joints_opt_flag, args.vis_extrapose)

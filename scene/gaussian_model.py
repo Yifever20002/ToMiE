@@ -27,6 +27,8 @@ import torch.nn.functional as F
 from nets.mlp_delta_body_pose import BodyPoseRefiner
 from nets.mlp_delta_weight_lbs import LBSOffsetDecoder
 from nets.mlp_tuned_extra_joints import ExtraPoseTuner
+from nets.mlp_delta_non_rigid import NonrigidDeformer
+from nets.mlp_delta_extra_joints import ExtraJointsDeformer
 
 
 
@@ -44,17 +46,15 @@ class GaussianModel:
         
         self.scaling_activation = torch.exp
         self.scaling_inverse_activation = torch.log
-
         self.covariance_activation = build_covariance_from_scaling_rotation
-
         self.opacity_activation = torch.sigmoid
         self.inverse_opacity_activation = inverse_sigmoid
-
         self.rotation_activation = torch.nn.functional.normalize
 
 
-    def __init__(self, sh_degree : int, smpl_type : str, motion_offset_flag : bool, \
-                 actor_gender: str, model_path=None, load_iteration=None):
+    def __init__(self, sh_degree : int, smpl_type : str, motion_offset_flag : bool, non_rigid_flag : bool, \
+                 non_rigid_use_extra_condition_flag : bool, joints_opt_flag : bool, actor_gender: str,  \
+                 model_path=None, load_iteration=None, extra_joints_batch=None):
         self.active_sh_degree = 0
         self.max_sh_degree = sh_degree  
         self._xyz = torch.empty(0)
@@ -72,6 +72,7 @@ class GaussianModel:
         self.num_extra_joints = 0
         self.extra_joints = None
         self.extra_parents = None
+        self.extra_joints_batch = extra_joints_batch
         self.setup_functions()
 
         self.device=torch.device('cuda', torch.cuda.current_device())
@@ -102,11 +103,15 @@ class GaussianModel:
         self.knn_near_2 = KNN(k=2, transpose_mode=True)
 
         self.motion_offset_flag = motion_offset_flag
+        self.non_rigid_flag = non_rigid_flag
+        self.non_rigid_use_extra_condition_flag = non_rigid_use_extra_condition_flag
+        self.joints_opt_flag = joints_opt_flag
+
         
         if self.motion_offset_flag:
             # load pose correction module
             total_bones = self.SMPL_NEUTRAL['weights'].shape[-1]
-            
+    
             self.pose_decoder = BodyPoseRefiner(total_bones=total_bones, embedding_size=3*(total_bones-1), mlp_width=128, mlp_depth=2)
             self.pose_decoder.to(self.device)
             
@@ -124,6 +129,16 @@ class GaussianModel:
             # load lbs weight module
             self.lweight_offset_decoder = LBSOffsetDecoder(total_bones=total_bones+self.num_extra_joints)
             self.lweight_offset_decoder.to(self.device)
+            
+            self.non_rigid_deformer = None
+            if self.non_rigid_flag:
+                self.non_rigid_deformer = NonrigidDeformer(device=self.device)
+                self.non_rigid_deformer.to(self.device)
+              
+            self.joints_deformer = None
+            if self.joints_opt_flag:
+                self.joints_deformer = ExtraJointsDeformer(device=self.device)
+                self.joints_deformer.to(self.device)
             
             # define the accumulated distance for each point
             self.total_bones = total_bones
@@ -154,6 +169,8 @@ class GaussianModel:
             self.pose_decoder,
             self.lweight_offset_decoder,
             self.extrapose_tuner,
+            self.non_rigid_deformer,
+            self.joints_deformer,
         )
     
     def restore(self, model_args, training_args):
@@ -175,7 +192,9 @@ class GaussianModel:
         self.spatial_lr_scale,
         self.pose_decoder,
         self.lweight_offset_decoder,
-        self.extrapose_tuner) = model_args
+        self.extrapose_tuner,
+        self.non_rigid_deformer,
+        self.joints_deformer) = model_args
         self.training_setup(training_args, self.use_extrapose_tuner)
         self.xyz_gradient_accum = xyz_gradient_accum
         self.denom = denom
@@ -208,8 +227,16 @@ class GaussianModel:
     def get_opacity(self):
         return self.opacity_activation(self._opacity)
     
-    def get_covariance(self, scaling_modifier = 1, transform=None):
-        return self.covariance_activation(self.get_scaling, scaling_modifier, self._rotation, transform)
+    def get_covariance(self, scaling_modifier = 1, transform=None, d_rotation=None, d_scaling=None):
+        
+        if d_rotation is not None:
+            scaling = self.get_scaling + d_scaling
+            rotation = self._rotation + d_rotation
+        else:
+            scaling = self.get_scaling
+            rotation = self._rotation
+        
+        return self.covariance_activation(scaling, scaling_modifier, rotation, transform)
     
     def update_std_dist(self):
         print('update std dist...')
@@ -283,6 +310,12 @@ class GaussianModel:
         if self.use_extrapose_tuner:
             l += [{'params': self.extrapose_tuner.parameters(), 'lr': training_args.extrapose_tuner_lr,
                  "name": "extrapose_tuner"},]
+        if self.non_rigid_flag:
+            l += [{'params': self.non_rigid_deformer.parameters(), 'lr': training_args.non_rigid_deformer_lr,
+                 "name": "non_rigid_deformer"},]
+        if self.joints_opt_flag:
+            l += [{'params': self.joints_deformer.parameters(), 'lr': training_args.joints_deformer_lr,
+                 "name": "joints_deformer"},]
 
         self.optimizer = torch.optim.Adam(l, lr=0.0, eps=1e-15)
         self.xyz_scheduler_args = get_expon_lr_func(lr_init=training_args.position_lr_init*self.spatial_lr_scale,
@@ -404,11 +437,11 @@ class GaussianModel:
                 if stored_state is not None:
                     stored_state["exp_avg"] = stored_state["exp_avg"][mask]
                     stored_state["exp_avg_sq"] = stored_state["exp_avg_sq"][mask]
-
+                    
                     del self.optimizer.state[group['params'][0]]
                     group["params"][0] = nn.Parameter((group["params"][0][mask].requires_grad_(True)))
                     self.optimizer.state[group['params'][0]] = stored_state
-
+                    
                     optimizable_tensors[group["name"]] = group["params"][0]
                 else:
                     group["params"][0] = nn.Parameter(group["params"][0][mask].requires_grad_(True))
@@ -819,15 +852,35 @@ class GaussianModel:
             self.num_extra_joints+=1
         else:
             self.extra_joints = torch.cat((self.extra_joints, \
-                                           new_joint_init.unsqueeze(0).to(self.device)), dim=1)
+                                           new_joint_init.unsqueeze(0).to(self.device)), dim=0)
             self.extra_parents = torch.cat((self.extra_parents, \
                                            torch.tensor([joint_index], device=self.device)))
             self.num_extra_joints+=1
+        print(self.extra_joints.shape, self.extra_parents.shape, self.num_extra_joints)
+        # if self.num_extra_joints == 0:
+        #     self.extra_joints = nn.Parameter(new_joint_init.unsqueeze(0).\
+        #                                      to(self.device).requires_grad_(True))
+        #     self.extra_parents = torch.tensor([joint_index], device=self.device)
+        #     self.num_extra_joints += 1
+        #
+        #     self.optimizer.add_param_group({'params': [self.extra_joints], \
+        #                                     'lr': 0.01, \
+        #                                     "name": "extra_joints"})
+        # else:
+        #     extra_joints = torch.cat((self.extra_joints, \
+        #                               new_joint_init.unsqueeze(0).to(self.device)), dim=1)
+        #     self.extra_joints = nn.Parameter(extra_joints.requires_grad_(True))
+        #     self.extra_parents = torch.cat((self.extra_parents, \
+        #                                 torch.tensor([joint_index], device=self.device)))
+        #     self.num_extra_joints += 1
+
         self.update_std_dist()
 
     
     
-    def coarse_deform_c2source(self, query_pts, params, t_params, t_vertices, lbs_weights=None, correct_Rs=None, return_transl=False, pc_grad=None):
+    def coarse_deform_c2source(self, query_pts, params, t_params, t_vertices, \
+                               lbs_weights=None, correct_Rs=None, return_transl=False, \
+                               pc_grad=None):
         
         bs = query_pts.shape[0]   # 1
         joints_num = self.SMPL_NEUTRAL['weights'].shape[-1]   #55
@@ -837,6 +890,8 @@ class GaussianModel:
         
         #this is not right cause some points can not be simply judged by KNN for belonging
         distance, vert_ids = self.knn(smpl_pts.float(), query_pts.float())  #[1, N, 1]
+        # print(smpl_pts.float().shape, query_pts.float().shape)
+        # assert False
         # print(torch.mean(distance))
         if lbs_weights is None:
             bweights = self.SMPL_NEUTRAL['weights'][vert_ids].view(*vert_ids.shape[:2], joints_num)#.cuda() # [bs, points_num, joints_num]
@@ -844,21 +899,40 @@ class GaussianModel:
             # also considering optimizing the weight
             
             pretrained_bweights = self.SMPL_NEUTRAL['weights'][vert_ids].view(*vert_ids.shape[:2], joints_num) # [1, N, 55]
+            
             if self.num_extra_joints !=0:
-                extra_bweights = torch.ones((*vert_ids.shape[:2], self.num_extra_joints), device=self.device)
+                # extra_bweights = torch.zeros((*vert_ids.shape[:2], self.num_extra_joints), device=self.device)
+                # extra_bweights = torch.ones((*vert_ids.shape[:2], self.num_extra_joints), device=self.device)
+                extra_bweights = pretrained_bweights[:, :, self.extra_parents]
+                # print(pretrained_bweights.shape)
+                # print(self.extra_parents, self.extra_parents.shape)
+                # print(torch.max(extra_bweights))
+                # assert False
+                
                 pretrained_bweights = torch.cat((pretrained_bweights, extra_bweights), dim=-1)
             bweights = torch.log(pretrained_bweights + 1e-9) + lbs_weights
             bweights = F.softmax(bweights, dim=-1)
             # if self.num_extra_joints !=0:
             #     max_values, _ = torch.max(bweights, dim=1)
             #     print('max_bweight', max_values)
-
           
+        extra_joints = self.extra_joints
+        if self.num_extra_joints !=0:
+            if self.joints_opt_flag:
+                p = torch.arange(1, self.num_extra_joints + 1, device='cuda').\
+                        view(self.num_extra_joints, 1).float()
+                joints_opt_out = self.joints_deformer(p)
+                d_joints = joints_opt_out['d_joints']
+                # print(p.shape, extra_joints.shape, d_joints.shape)
+                extra_joints = extra_joints + d_joints
+            extra_joints = extra_joints.unsqueeze(0)
+
         ### From Big To T Pose
         big_pose_params = t_params
         A, R, Th, joints = get_transform_params_torch(self.SMPL_NEUTRAL, big_pose_params, \
-                                    extra_joints=self.extra_joints, extra_parents=self.extra_parents,\
+                                    extra_joints=extra_joints, extra_parents=self.extra_parents,\
                                     num_extra_joints=self.num_extra_joints)
+
         # A [1, 55, 4, 4]  R [3, 3]   Th [1, 3]  joints [1, 55, 3]
         # infact A is the transformation from T-pose to big-pose
         A = torch.matmul(bweights, A.reshape(bs, joints_num+self.num_extra_joints, -1))   # 加权后的转移矩阵
@@ -928,7 +1002,7 @@ class GaussianModel:
 
         # get tar_pts, smpl space source pose
         A, R, Th, joints = get_transform_params_torch(self.SMPL_NEUTRAL, params, \
-                                       extra_joints=self.extra_joints, extra_parents=self.extra_parents, \
+                                       extra_joints=extra_joints, extra_parents=self.extra_parents, \
                                        rot_mats=rot_mats)
         self.s_A = A
         bweights_joints = torch.eye(joints_num+self.num_extra_joints).unsqueeze(0).cuda()
@@ -958,8 +1032,8 @@ class GaussianModel:
 
         if return_transl: 
             translation = torch.matmul(translation, R_inv).squeeze(-1) + Th
-
-        return world_src_query, world_src_pts, world_src_joints, bweights, \
+        
+        return world_src_query, world_src_pts, world_src_joints, bweights, pretrained_bweights,\
                transforms, translation, distance
 
 def read_pickle(pkl_path):
@@ -1013,6 +1087,7 @@ def get_rigid_transformation_torch(rot_mats, joints, parents):
     bs, joints_num = joints.shape[0:2]
     rel_joints = joints.clone()
     rel_joints[:, 1:] -= joints[:, parents[1:]]
+    #rel_joints[:, 1:] -= joints[:, parents[1:]]
 
     # create the transformation matrix from child p' to father p
     # p = transforms_mat x p'
@@ -1022,7 +1097,6 @@ def get_rigid_transformation_torch(rot_mats, joints, parents):
     padding = torch.zeros([bs, joints_num, 1, 4], device=rot_mats.device)  #.to(rot_mats.device)
     padding[..., 3] = 1
     transforms_mat = torch.cat([transforms_mat, padding], dim=-2)
-    
     # rotate each part
     transform_chain = [transforms_mat[:, 0]]
     for i in range(1, parents.shape[0]):
@@ -1030,15 +1104,19 @@ def get_rigid_transformation_torch(rot_mats, joints, parents):
         transform_chain.append(curr_res)
     
     transforms = torch.stack(transform_chain, dim=1)
-
+    
     # obtain the rigid transformation
     padding = torch.zeros([bs, joints_num, 1], device=rot_mats.device)  #.to(rot_mats.device)
     joints_homogen = torch.cat([joints, padding], dim=-1)
     rel_joints = torch.sum(transforms * joints_homogen[:, :, None], dim=3)
-    
     # define the difference of joint between target pose and t pose, no need to change rot as t pose
     # rot is identity
-    transforms[..., 3] = transforms[..., 3] - rel_joints
+    # transforms[..., 3] = transforms[..., 3] - rel_joints
+    
+    # transforms_final = transforms.clone()
+    t_rel = transforms[..., 3] - rel_joints
+    # transforms_final = torch.cat([transforms_final[..., :3], t_rel.unsqueeze(-1)], dim=-1)
+    transforms = torch.cat([transforms[..., :3], t_rel.unsqueeze(-1)], dim=-1)
 
     return transforms
 

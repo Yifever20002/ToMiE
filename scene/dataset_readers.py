@@ -26,10 +26,10 @@ from pathlib import Path
 from plyfile import PlyData, PlyElement
 from utils.sh_utils import SH2RGB
 from scene.gaussian_model import BasicPointCloud
-
+import trimesh
 from smpl.smpl_numpy import SMPL
 from smplx.body_models import SMPLX
-
+import tqdm
 from data.dna_rendering.dna_rendering_sample_code.SMCReader import SMCReader
 
 class CameraInfo(NamedTuple):
@@ -740,9 +740,222 @@ def readZJUMoCapRefineInfo(path, white_background, output_path, eval):
                            ply_path=ply_path)
     return scene_info
 
+##################################   ToMiE   ##################################
+
+def readCamerasToMiETrain(path, output_view, white_background, image_scaling=0.25, xyz_bound_flex=0.05, pose_start=0,
+                           pose_interval=1, pose_num=50, smpl_format='json'):
+    cam_infos = []
+    
+    img_names = os.listdir(os.path.join(path, 'images', output_view[0]))
+    img_names.sort()
+    
+    ims = np.array([
+        np.array([
+            os.path.join('images', view, fname) for view in output_view
+        ]) for fname in img_names[pose_start:pose_start + pose_num * pose_interval][::pose_interval]
+    ])
+    
+    cam_inds = np.array([
+        np.array(output_view) for _ in img_names[pose_start:pose_start + pose_num * pose_interval][::pose_interval]
+    ])
+    
+    smpl_model = SMPL(sex='neutral', model_dir='assets/SMPL_NEUTRAL.pkl')
+    
+    # SMPL in canonical space
+    big_pose_smpl_param = {}
+    big_pose_smpl_param['R'] = np.eye(3).astype(np.float32)
+    big_pose_smpl_param['Th'] = np.zeros((1, 3)).astype(np.float32)
+    big_pose_smpl_param['shapes'] = np.zeros((1, 10)).astype(np.float32)
+    big_pose_smpl_param['poses'] = np.zeros((1, 72)).astype(np.float32)
+    big_pose_smpl_param['poses'][0, 5] = 45 / 180 * np.array(np.pi)
+    big_pose_smpl_param['poses'][0, 8] = -45 / 180 * np.array(np.pi)
+    big_pose_smpl_param['poses'][0, 23] = -30 / 180 * np.array(np.pi)
+    big_pose_smpl_param['poses'][0, 26] = 30 / 180 * np.array(np.pi)
+    
+    big_pose_xyz, _ = smpl_model(big_pose_smpl_param['poses'], big_pose_smpl_param['shapes'].reshape(-1))
+    big_pose_xyz = (np.matmul(big_pose_xyz, big_pose_smpl_param['R'].transpose()) + big_pose_smpl_param['Th']).astype(
+        np.float32)
+    
+    # obtain the original bounds for point sampling
+    big_pose_min_xyz = np.min(big_pose_xyz, axis=0)
+    big_pose_max_xyz = np.max(big_pose_xyz, axis=0)
+    big_pose_min_xyz -= xyz_bound_flex
+    big_pose_max_xyz += xyz_bound_flex
+    big_pose_world_bound = np.stack([big_pose_min_xyz, big_pose_max_xyz], axis=0)
+    
+    extrinsics = {}
+    
+    for json_name in os.listdir(os.path.join(path, 'camera_extris')):
+        with open(os.path.join(path, 'camera_extris', json_name), 'r', encoding='utf-8') as file:
+            camera_id = os.path.splitext(json_name)[0]
+            data = json.load(file)
+            extrinsics[camera_id] = data
+    
+    idx = 0
+    for pose_index in range(pose_num):
+        for view_index in range(len(output_view)):
+            
+            # Load image, mask, K, D, R, T
+            image_path = os.path.join(path, ims[pose_index][view_index].replace('\\', '/'))
+            image_name = ims[pose_index][view_index].split('.')[0]
+            image = np.array(imageio.imread(image_path).astype(np.float32) / 255.)
+            
+            # msk_path = image_path.replace('images', 'mask').replace('.jpg', '.png')
+            # msk = imageio.imread(msk_path)
+            # msk = (msk != 0).astype(np.uint8)
+            msk = np.ones(image.shape[:2], dtype=np.uint8)
+            
+            cam_ind = cam_inds[pose_index][view_index]
+            
+            K = np.array(extrinsics[cam_ind]['K'])
+            D = np.array(extrinsics[cam_ind]['dist'])
+            R = np.array(extrinsics[cam_ind]['R'])
+            T = np.array(extrinsics[cam_ind]['T'])
+            
+            image = cv2.undistort(image, K, D)
+            msk = cv2.undistort(msk, K, D)
+            
+            image[msk == 0] = 1 if white_background else 0
+            
+            # change from OpenGL/Blender camera axes (Y up, Z back) to COLMAP (Y down, Z forward)
+            w2c = np.eye(4)
+            w2c[:3, :3] = R
+            w2c[:3, 3:4] = T
+            
+            # get the world-to-camera transform and set R, T
+            R = np.transpose(w2c[:3, :3])  # R is stored transposed due to 'glm' in CUDA code
+            T = w2c[:3, 3]
+            
+            # Reduce the image resolution by ratio, then remove the back ground
+            ratio = image_scaling
+            if ratio != 1.:
+                H, W = int(image.shape[0] * ratio), int(image.shape[1] * ratio)
+                image = cv2.resize(image, (W, H), interpolation=cv2.INTER_AREA)
+                msk = cv2.resize(msk, (W, H), interpolation=cv2.INTER_NEAREST)
+                K[:2] = K[:2] * ratio
+            
+            image = Image.fromarray(np.array(image * 255.0, dtype=np.byte), "RGB")
+            
+            focalX = K[0, 0]
+            focalY = K[1, 1]
+            FovX = focal2fov(focalX, image.size[0])
+            FovY = focal2fov(focalY, image.size[1])
+            
+            # load smpl data
+            if smpl_format == 'json':
+                i = os.path.splitext(os.path.basename(image_path))[0]
+                vertices_path = os.path.join(path, 'smpl_vertices', f'{str(i).zfill(6)}.json')
+                with open(vertices_path, 'r', encoding='utf-8') as file:
+                    xyz = np.array(json.load(file)[0]['vertices']).astype(np.float32)
+                
+                smpl_param_path = os.path.join(path, "smpl/smpl", f'{str(i).zfill(6)}.json')
+                with open(smpl_param_path, 'r', encoding='utf-8') as file:
+                    smpl_param = json.load(file)[0]
+                smpl_param['Rh'] = np.array(smpl_param['Rh'])
+                smpl_param['R'] = cv2.Rodrigues(smpl_param['Rh'])[0].astype(np.float32)
+                smpl_param['Th'] = np.array(smpl_param['Th']).astype(np.float32)
+                smpl_param['shapes'] = np.array(smpl_param['shapes']).astype(np.float32)
+                smpl_param['poses'] = np.array(smpl_param['poses']).astype(np.float32)
+            elif smpl_format == 'npy':
+                i = int(os.path.basename(image_path)[:-4])
+                vertices_path = os.path.join(path, 'smpl_vertices', '{}.npy'.format(i))
+                xyz = np.load(vertices_path).astype(np.float32)
+                
+                smpl_param_path = os.path.join(path, "smpl_params", '{}.npy'.format(i))
+                smpl_param = np.load(smpl_param_path, allow_pickle=True).item()
+                Rh = smpl_param['Rh']
+                smpl_param['R'] = cv2.Rodrigues(Rh)[0].astype(np.float32)
+                smpl_param['Th'] = smpl_param['Th'].astype(np.float32)
+                smpl_param['shapes'] = smpl_param['shapes'].astype(np.float32)
+                smpl_param['poses'] = smpl_param['poses'].astype(np.float32)
+            else:
+                assert False
+            
+            # obtain the original bounds for point sampling
+            min_xyz = np.min(xyz, axis=0)
+            max_xyz = np.max(xyz, axis=0)
+            min_xyz -= xyz_bound_flex
+            max_xyz += xyz_bound_flex
+            world_bound = np.stack([min_xyz, max_xyz], axis=0)
+            
+            # get bounding mask and bcakground mask
+            bound_mask = get_bound_2d_mask(world_bound, K, w2c[:3], image.size[1], image.size[0])
+            bound_mask = Image.fromarray(np.array(bound_mask * 255.0, dtype=np.byte))
+            
+            bkgd_mask = Image.fromarray(np.array(msk * 255.0, dtype=np.byte))
+            
+            # print(image_path)
+            
+            cam_infos.append(
+                CameraInfo(
+                    uid=idx, pose_id=pose_index,
+                    R=R, T=T, K=K, FovY=FovY, FovX=FovX,
+                    image=image, image_path=image_path, image_name=image_name,
+                    bkgd_mask=bkgd_mask, bound_mask=bound_mask,
+                    width=image.size[0], height=image.size[1],
+                    smpl_param=smpl_param, world_vertex=xyz, world_bound=world_bound,
+                    big_pose_smpl_param=big_pose_smpl_param,
+                    big_pose_world_vertex=big_pose_xyz,
+                    big_pose_world_bound=big_pose_world_bound
+                )
+            )
+            
+            idx += 1
+    
+    return cam_infos
+
+
+def readToMiEInfo(path, white_background, output_path, eval):
+    train_index = [i for i in range(0, 22, 2)]
+    test_index = [i for i in range(22, 26, 2)]
+    #test_index.remove(train_index[0])
+    
+    view_list = os.listdir(os.path.join(path, 'images'))
+    train_view = [view_list[i] for i in train_index]
+    test_view = [view_list[i] for i in test_index]
+    
+    print("Reading Training Transforms")
+    train_cam_infos = readCamerasToMiETrain(path, train_view, white_background)
+    print("Reading Test Transforms")
+    test_cam_infos = readCamerasToMiETrain(path, test_view, white_background)
+    
+    if not eval:
+        train_cam_infos.extend(test_cam_infos)
+        test_cam_infos = []
+    
+    nerf_normalization = getNerfppNorm(train_cam_infos)
+    if len(train_view) == 1:
+        nerf_normalization['radius'] = 1
+    
+    ply_path = os.path.join('output', output_path, "points3d.ply")
+    if not os.path.exists(ply_path):
+        # Since this data set has no colmap data, we start with random points
+        num_pts = 6890  # 100_000
+        print(f"Generating random point cloud ({num_pts})...")
+        
+        # We create random points inside the bounds of the synthetic Blender scenes
+        xyz = train_cam_infos[0].big_pose_world_vertex
+        
+        shs = np.random.random((num_pts, 3)) / 255.0
+        pcd = BasicPointCloud(points=xyz, colors=SH2RGB(shs), normals=np.zeros((num_pts, 3)))
+        
+        storePly(ply_path, xyz, SH2RGB(shs) * 255)
+    try:
+        pcd = fetchPly(ply_path)
+    except:
+        pcd = None
+    
+    scene_info = SceneInfo(point_cloud=pcd,
+                           train_cameras=train_cam_infos,
+                           test_cameras=test_cam_infos,
+                           nerf_normalization=nerf_normalization,
+                           ply_path=ply_path)
+    return scene_info
+
 ##################################   DNARendering   ##################################
 
-def readCamerasDNARendering(path, output_view, white_background, image_scaling=0.25, split='train', args=None):
+def readCamerasDNARendering(path, output_view, white_background, image_scaling=0.25, \
+                            split='train', args=None, mono_test=None):
     cam_infos = []
 
     if split == 'train':
@@ -750,9 +963,14 @@ def readCamerasDNARendering(path, output_view, white_background, image_scaling=0
         pose_interval = 1
         pose_num = 100
     else:
-        pose_start = 0
-        pose_interval = 5
-        pose_num = 20
+        if mono_test:
+            pose_start = 0
+            pose_interval = 1
+            pose_num = 100
+        else:
+            pose_start = 0
+            pose_interval = 5
+            pose_num = 20
 
     data_name = path.split('/')[-1][2:]
     main_path = os.path.join(path, data_name+'.smc')
@@ -875,11 +1093,12 @@ def readCamerasDNARendering(path, output_view, white_background, image_scaling=0
                 transl=smpl_param_tensor['transl'],
                 return_full_pose=True,
             )
-
+            
             smpl_param['poses'] = body_model_output.full_pose.detach()
             smpl_param['shapes'] = np.concatenate([smpl_param['betas'], smpl_param['expression']], axis=-1)
             xyz = np.array(body_model_output.vertices.detach()).reshape(-1,3).astype(np.float32)
             np.savez(current_model, **smpl_param, xyz=xyz)
+
         
         else:
             loaded_data = np.load(current_model)
@@ -941,7 +1160,7 @@ def readCamerasDNARendering(path, output_view, white_background, image_scaling=0
 
                 image = Image.fromarray(np.array(image*255.0, dtype=np.byte), "RGB")
                 image.save(image_name)
-
+                
                 bkgd_mask = Image.fromarray(np.array(msk*255.0, dtype=np.byte))
                 bkgd_mask.save(bkgd_mask_name)
             
@@ -957,6 +1176,11 @@ def readCamerasDNARendering(path, output_view, white_background, image_scaling=0
             c2w[:3,3:4] = T.reshape(-1, 1)
             # get the world-to-camera transform and set R, T
             w2c = np.linalg.inv(c2w)
+            # if split != 'train':
+            #     print(w2c)
+            #     np.savetxt('render360/'+str(view_index)+'.txt', w2c, fmt='%.6f')
+            # if mono_test:
+            #     w2c = np.loadtxt(f'render360_dense/{pose_index:03d}.txt')
             R = np.transpose(w2c[:3,:3])  # R is stored transposed due to 'glm' in CUDA code
             T = w2c[:3, 3]
 
@@ -980,17 +1204,19 @@ def readCamerasDNARendering(path, output_view, white_background, image_scaling=0
             
     return cam_infos
 
-def readDNARenderingInfo(path, white_background, output_path, eval, args):
+def readDNARenderingInfo(path, white_background, output_path, eval, args, mono_test):
 
     train_view = [i for i in range(0, 48, 2)]
     test_view = [i for i in range(48, 60, 2)]
-    # print(train_view)
-    # assert False
+    if mono_test:
+        print('U are doing monocular test!')
+        test_view = [51]
 
     print("Reading Training Transforms")
     train_cam_infos = readCamerasDNARendering(path, train_view, white_background, split='train', args=args)
     print("Reading Test Transforms")
-    test_cam_infos = readCamerasDNARendering(path, test_view, white_background, split='test', args=args)
+    test_cam_infos = readCamerasDNARendering(path, test_view, white_background, \
+                                             split='test', args=args, mono_test=mono_test)
     
     if not eval:
         train_cam_infos.extend(test_cam_infos)
@@ -1091,4 +1317,5 @@ sceneLoadTypeCallbacks = {
     "ZJU_MoCap_refine" : readZJUMoCapRefineInfo,
     "MonoCap": readMonoCapdataInfo,
     "dna_rendering": readDNARenderingInfo,
+    "ToMiE": readToMiEInfo,
 }

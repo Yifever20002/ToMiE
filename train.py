@@ -63,9 +63,20 @@ def set_seed(seed):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
+
+def print_graph(g, level=0):
+    if g is not None:
+        print('\t' * level + str(g))
+        if hasattr(g, 'next_functions'):
+            for f in g.next_functions:
+                print_graph(f[0], level + 1)
+        if hasattr(g, 'saved_tensors'):
+            for t in g.saved_tensors:
+                print('\t' * (level + 1) + str(t))
+
 def training(dataset, opt, pipe, testing_iterations, saving_iterations, \
              checkpoint_iterations, checkpoint, debug_from, use_extrapose_tuner, \
-             is_continue):
+             non_rigid_flag, non_rigid_use_extra_condition_flag, joints_opt_flag, is_continue):
     first_iter = 0
     tb_writer = prepare_output_and_logger(dataset)
     
@@ -75,8 +86,9 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, \
         model_path = os.path.dirname(checkpoint)
     
     gaussians = GaussianModel(dataset.sh_degree, dataset.smpl_type, \
-                dataset.motion_offset_flag, dataset.actor_gender, \
-                model_path=model_path, load_iteration=first_iter)
+                dataset.motion_offset_flag, non_rigid_flag, non_rigid_use_extra_condition_flag, \
+                joints_opt_flag, dataset.actor_gender,  \
+                model_path=model_path, load_iteration=first_iter, extra_joints_batch=opt.extra_joints_batch)
     
     if checkpoint:
         scene = Scene(dataset, gaussians, load_iteration=first_iter, is_continue=is_continue)
@@ -87,7 +99,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, \
 
     bg_color = [1, 1, 1] if dataset.white_background else [0, 0, 0]
     background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")
-
+    
     iter_start = torch.cuda.Event(enable_timing = True)
     iter_end = torch.cuda.Event(enable_timing = True)
 
@@ -129,18 +141,18 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, \
 
         # Start timer
         start_time = time.time()
-
         # Pick a random Camera
         if not viewpoint_stack:
             viewpoint_stack = scene.getTrainCameras().copy()
         viewpoint_cam = viewpoint_stack.pop(randint(0, len(viewpoint_stack)-1))
-
+        # print(viewpoint_cam.image_name, viewpoint_cam.uid)
+        
         # Render
         if (iteration - 1) == debug_from:
             pipe.debug = True
         render_pkg = render(viewpoint_cam, gaussians, pipe, background)
         image, alpha, viewspace_point_tensor, visibility_filter, radii = render_pkg["render"], render_pkg["render_alpha"], render_pkg["viewspace_points"], render_pkg["visibility_filter"], render_pkg["radii"]
-
+        
         # Loss
         gt_image = viewpoint_cam.original_image.cuda()
         bkgd_mask = viewpoint_cam.bkgd_mask.cuda()
@@ -154,10 +166,11 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, \
         img_gt = gt_image[:, y:y + h, x:x + w].unsqueeze(0)
         # ssim loss
         ssim_loss = ssim(img_pred, img_gt)
-        # lipis loss
+        # lpips loss
         lpips_loss = loss_fn_vgg(img_pred, img_gt).reshape(-1)
 
         loss = Ll1 + 0.1 * mask_loss + 0.01 * (1.0 - ssim_loss) + 0.01 * lpips_loss
+
         loss.backward()
 
         # end time
@@ -166,7 +179,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, \
         elapsed_time += (end_time - start_time)
 
         if (iteration in testing_iterations):
-            print("[Elapsed time]: ", elapsed_time) 
+            print("[Elapsed time]: ", elapsed_time)
 
         iter_end.record()
         
@@ -189,7 +202,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, \
             
             # Log and save
             training_report(tb_writer, iteration, Ll1, loss, l1_loss, iter_start.elapsed_time(iter_end),
-                            testing_iterations, scene, pc_grad, render, (pipe, background))
+                            testing_iterations, scene, pc_grad, render, use_extrapose_tuner, (pipe, background))
             
             if (iteration in saving_iterations):
                 print("\n[ITER {}] Saving Gaussians".format(iteration))
@@ -209,10 +222,14 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, \
                 # Keep track of max radii in image-space for pruning
                 # gaussians.max_radii2D[visibility_filter] = torch.max(gaussians.max_radii2D[visibility_filter], radii[visibility_filter])
                 gaussians.add_densification_stats(viewspace_point_tensor, visibility_filter)
-                
                 if iteration > opt.densify_from_iter and iteration % opt.densification_interval == 0:
                     size_threshold = 20 if iteration > opt.opacity_reset_interval else None
-                    gaussians.densify_and_prune(opt.densify_grad_threshold, 0.005, scene.cameras_extent, size_threshold, kl_threshold=0.4, t_vertices=viewpoint_cam.big_pose_world_vertex, iter=iteration)
+                    densify_grad_threshold = opt.densify_grad_threshold
+                    if len(gaussians._xyz) > 30000:
+                        print('points over 30000! set threshold: ', 2+(len(gaussians._xyz)-30000)/5000)
+                        densify_grad_threshold = (2+(len(gaussians._xyz)-30000)/5000)*opt.densify_grad_threshold
+                    
+                    gaussians.densify_and_prune(densify_grad_threshold, 0.005, scene.cameras_extent, size_threshold, kl_threshold=0.4, t_vertices=viewpoint_cam.big_pose_world_vertex, iter=iteration)
                     # gaussians.densify_and_prune(opt.densify_grad_threshold, 0.01, scene.cameras_extent, 1)
                 
 
@@ -255,7 +272,8 @@ def prepare_output_and_logger(args):
     #     print("Tensorboard not available: not logging progress")
     return tb_writer
 
-def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_iterations, scene : Scene, pc_grad, renderFunc, renderArgs):
+def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_iterations,
+                    scene : Scene, pc_grad, renderFunc, use_extrapose_tuner, renderArgs):
 
     log_loss = {
         'loss/l1_loss': Ll1.item(),
@@ -288,7 +306,9 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
                     
                     render_output = renderFunc(viewpoint, scene.gaussians, *renderArgs, pc_grad=pc_grad, return_smpl_rot=True)
                     maxgrad_index = render_output["maxgrad_index"]
-                    new_joint_init = render_output["new_joint_init"]
+                    topk_index = render_output["topk_index"]
+                    topk_value = render_output["topk_value"]
+                    new_joints_init = render_output["new_joints_init"]
     
                     image = torch.clamp(render_output["render"], 0.0, 1.0)
                     alpha = torch.clamp(render_output["render_alpha"], 0.0, 1.0)
@@ -356,10 +376,12 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
                     config['name'] + '/loss_viewpoint - ssim': ssim_test,
                     config['name'] + '/loss_viewpoint - lpips': lpips_test,
                 })
-                
-                if iteration>9999 and iteration<19999 and config['name'] == 'test':
-                    print('start adaptive skeleton')
-                    scene.gaussians.create_new_joint_v2(maxgrad_index, new_joint_init)
+                if use_extrapose_tuner:
+                    if iteration>7999 and iteration<8999 and config['name'] == 'test':
+                        assert len(topk_index) == len(new_joints_init), f"mismatch between topk_index and new_joints_init"
+                        for i in range(len(topk_index)):
+                            print('start adaptive skeleton', topk_index[i])
+                            scene.gaussians.create_new_joint_v2(topk_index[i], new_joints_init[i])
 
         # Store data (serialize)
         save_path = os.path.join(scene.model_path, 'smpl_rot', f'iteration_{iteration}')
@@ -381,7 +403,7 @@ if __name__ == "__main__":
     parser.add_argument('--port', type=int, default=6008)
     parser.add_argument('--debug_from', type=int, default=-1)
     parser.add_argument('--detect_anomaly', action='store_true', default=False)
-    parser.add_argument("--test_iterations", nargs="+", type=int, default=[i for i in range(0, 30_001, 10000)])
+    parser.add_argument("--test_iterations", nargs="+", type=int, default=[i for i in range(0, 30_001, 2000)])
     parser.add_argument("--save_iterations", nargs="+", type=int, default=[i for i in range(0, 30_001, 2000)])
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--checkpoint_iterations", nargs="+", type=int, default=[])
@@ -390,6 +412,12 @@ if __name__ == "__main__":
     parser.add_argument("--is_continue", action='store_true')
     parser.add_argument("--use_extrapose_tuner", type=str2bool, nargs='?', const=True, default=False,
                         help="Activate extrapose tuner (default: False)")
+    parser.add_argument("--non_rigid_flag", type=str2bool, nargs='?', const=True, default=False,
+                        help="Activate non-rigid MLP (default: False)")
+    parser.add_argument("--non_rigid_use_extra_condition_flag", type=str2bool, nargs='?', const=True, default=False,
+                        help="Activate non-rigid extra condition (default: False)")
+    parser.add_argument("--joints_opt_flag", type=str2bool, nargs='?', const=True, default=False,
+                        help="Activate joint optimization (default: False)")
     
     
     args = parser.parse_args(sys.argv[1:])
@@ -424,7 +452,7 @@ if __name__ == "__main__":
     
     training(lp.extract(args), op.extract(args), pp.extract(args), args.test_iterations, args.save_iterations, \
              args.checkpoint_iterations, args.start_checkpoint, args.debug_from, args.use_extrapose_tuner, \
-             args.is_continue)
+             args.non_rigid_flag, args.non_rigid_use_extra_condition_flag, args.joints_opt_flag, args.is_continue)
     
     # All done
     print("\nTraining complete.")

@@ -86,14 +86,17 @@ class OptimizationParams(ParamGroup):
         self.pose_refine_lr = 0.00005
         self.lbs_offset_lr = 0.00005
         self.extrapose_tuner_lr = 0.001
+        self.non_rigid_deformer_lr = 0.001
+        self.joints_deformer_lr = 1e-5
         self.percent_dense = 0.01
         self.lambda_dssim = 0.2
         self.densification_interval = 100
         self.opacity_reset_interval = 1000
         self.densify_from_iter = 400 #500
         self.densify_until_iter = 30000 #15_000
-        self.densify_grad_threshold = 0.001
+        self.densify_grad_threshold = 0.0005  #0.001
         self.update_std_interval = 1000
+        self.extra_joints_batch = 1
         super().__init__(parser, "Optimization Parameters")
 
 def get_combined_args(parser : ArgumentParser):

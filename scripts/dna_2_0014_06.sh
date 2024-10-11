@@ -1,14 +1,19 @@
 export CUDA_HOME=/usr/local/cuda
-export CUDA_VISIBLE_DEVICES=0
-
+export CUDA_VISIBLE_DEVICES=2
+# ok
 id_name=2_0014_06
 
 dataset=../dataset/DNA-Rendering/${id_name}/
 iterations=30000
 smpl_type=simple_smplx
-use_extrapose_tuner=False
+use_extrapose_tuner=True
+non_rigid_flag=True
+non_rigid_use_extra_condition_flag=False
+joints_opt_flag=True
+extra_joints_batch=-1
 
-exp_name=dna/${id_name}_use_extrp_tuner_${use_extrapose_tuner}
+exp_name=dna_github/${id_name}_uet_${use_extrapose_tuner}_nr_\
+${non_rigid_flag}_nruec_${non_rigid_use_extra_condition_flag}_jo_${joints_opt_flag}_ejb_${extra_joints_batch}
 
 python train.py -s $dataset --eval \
     --exp_name $exp_name \
@@ -17,19 +22,10 @@ python train.py -s $dataset --eval \
     --actor_gender neutral \
     --iterations ${iterations} \
     --use_extrapose_tuner ${use_extrapose_tuner} \
-    --port 6005 \
-    --wandb_disable \
+    --non_rigid_flag ${non_rigid_flag} \
+    --non_rigid_use_extra_condition_flag ${non_rigid_use_extra_condition_flag}  \
+    --joints_opt_flag ${joints_opt_flag} \
+    --extra_joints_batch ${extra_joints_batch} \
+    --port 6004 \
     --is_continue \
-
-#    --start_checkpoint output/${exp_name}/chkpnt18000.pth \
-
-
-#outdir=output/${exp_name}
-#
-#python render.py -m $outdir \
-#   --motion_offset_flag \
-#   --smpl_type ${smpl_type} \
-#   --actor_gender neutral \
-#   --iteration ${iterations} \
-#   --use_extrapose_tuner ${use_extrapose_tuner} \
-#   --skip_train
+    --wandb_disable
