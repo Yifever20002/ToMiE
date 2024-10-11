@@ -30,7 +30,7 @@ Install other requirements:
 
 ### `Download SMPL model`
 
-Download the SMPL(-X) from [here](https://github.com/richzhang/PerceptualSimilarity/tree/master/lpips/weights/v0.1) and put it under the main path.
+Download the SMPL(-X) from [here](https://drive.google.com/drive/folders/1ULFP2r1RLq5dBrvkK_R_4MTMOB8ej2V4?usp=drive_link) and put it under the main path.
 
 ### `Dataset`
 
