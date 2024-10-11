@@ -30,26 +30,8 @@ Install other requirements:
 
 ### `Download SMPL model`
 
-Copy the smpl model.
+Download the SMPL(-X) from [here](https://github.com/richzhang/PerceptualSimilarity/tree/master/lpips/weights/v0.1) and put it under the main path.
 
-    SMPL_DIR=/path/to/smpl
-
-    MODEL_DIR=$SMPL_DIR/smplify_public/code/models
-
-    cp $MODEL_DIR/basicModel_neutral_lbs_10_207_0_v1.0.0.pkl third_parties/smpl/models
-
-Follow [this page](https://github.com/vchoutas/smplx/tree/master/tools) to remove Chumpy objects from the SMPL model.
-
-### `Download vgg.pth`
-
-Download the vgg.pth from [here](https://github.com/richzhang/PerceptualSimilarity/tree/master/lpips/weights/v0.1).
-
-    VGG_DIR=/path/to/vgg.pth
-
-    cp $VGG_DIR third_parties/lpips/weights/v0.1/
-
-### `Download RAFT model`
-    cd RAFT && ./download_models.sh
 
 ## B. Experiments on I3D-Human Dataset
 The I3D-Human Dataset focuses on capturing variations in clothing appearance under approximately identical poses. Compared with existing benchmarks, we outfit the subjects in loose clothing such as dresses and light jackets and
