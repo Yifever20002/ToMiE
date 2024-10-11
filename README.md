@@ -84,7 +84,7 @@ Here is a description of the ``dna_x_xxxx_xx.sh'' file:
 
 We also have similar scripts for ZJU_MoCap dataset.
 
-## B. Results
+## C. Results
 
 ### Monocular Rendering
 
@@ -119,3 +119,4 @@ We also have similar scripts for ZJU_MoCap dataset.
 
 <img src="https://github.com/Yifever20002/ToMiE/blob/main/images/animating.gif" alt="animating" width="1138">
 
+## D. Citation
