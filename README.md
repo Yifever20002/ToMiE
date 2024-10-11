@@ -51,29 +51,34 @@ For ZJU_Mocap dataset, please refer to [mlp_maps](https://github.com/zju3dv/mlp_
 
 Here is a description of the ``dna_x_xxxx_xx.sh'' file:
 
-## C. Experiments on ZJU-MoCap Dataset
+export CUDA_HOME=/usr/local/cuda
+export CUDA_VISIBLE_DEVICES=2
+# ok
+id_name=2_0041_10
 
-### Data preparation
-Fill in the [form](https://docs.google.com/forms/d/1QcTp5qIbIBn8PCT-EQgG-fOB4HZ9khpRkT3q2OnH2bs) to download the dataset.
+dataset=../dataset/DNA-Rendering/${id_name}/
+iterations=30000
+smpl_type=simple_smplx
+use_extrapose_tuner=True
+non_rigid_flag=True
+non_rigid_use_extra_condition_flag=False
+joints_opt_flag=True
+extra_joints_batch=-1
 
-Create a soft link:
+exp_name=dna_github/${id_name}_uet_${use_extrapose_tuner}_nr_\
+${non_rigid_flag}_nruec_${non_rigid_use_extra_condition_flag}_jo_${joints_opt_flag}_ejb_${extra_joints_batch}
 
-    ln -s /path/to/zju_mocap data/zju
-
-Then preprocess the data. Take Subject-390 for example:
-
-    tar -xvf CoreView_390.tar.gz
-    cd tools/prepare_zju_mocap
-    python prepare_dataset.py --cfg=configs/390_train.yaml
-    python prepare_dataset.py --cfg=configs/390_novelview.yaml
-    python prepare_dataset.py --cfg=configs/390_novelpose.yaml
-
-### Train and Test
-
-#### + Conditions
-
-    sh scripts/zju_mocap/313/313_posedelta.sh
-    sh scripts/zju_mocap/313/313_posedelta_test.sh
-
-
-
+python train.py -s $dataset --eval \
+    --exp_name $exp_name \
+    --motion_offset_flag \
+    --smpl_type ${smpl_type} \
+    --actor_gender neutral \
+    --iterations ${iterations} \
+    --use_extrapose_tuner ${use_extrapose_tuner} \
+    --non_rigid_flag ${non_rigid_flag} \
+    --non_rigid_use_extra_condition_flag ${non_rigid_use_extra_condition_flag}  \
+    --joints_opt_flag ${joints_opt_flag} \
+    --extra_joints_batch ${extra_joints_batch} \
+    --port 6005 \
+    --is_continue \
+    --wandb_disable
