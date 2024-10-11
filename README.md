@@ -49,20 +49,7 @@ For ZJU_Mocap dataset, please refer to [mlp_maps](https://github.com/zju3dv/mlp_
 
     sh scripts/dna_2_0041_10_render.sh
 
-You can also download our pretrained models [here](https://drive.google.com/drive/folders/1bj1pmr_FZE5ClR5ZCWpXD79ESaM8Ivvg?usp=sharing). Just put the "experiments" under /path/to/Dyco/experiments and you can simply run
-
-    sh scripts/I3DHuman/ID1_1/ID1_1_posedelta_test.sh
-
-to get the per-subject score reported in our paper:
-
-|         | Novel Views |        |       | Novel Poses |        |       |
-|:-------:|:-----------:|:------:|:-----:|:-----------:|:------:|:-----:|
-|   Data  |     PSNR    |  SSIM  | LPIPS |     PSNR    |  SSIM  | LPIPS |
-| ID1_1   |    31.31    | 0.9747 | 29.66 |    30.34    | 0.9706 | 34.41 |
-| ID1_2   |    31.20    | 0.9731 | 32.67 |    30.45    | 0.9710 | 33.19 |
-| ID2_1   |    29.80    | 0.9742 | 35.24 |    27.91    | 0.9653 | 45.44 |
-| ID3_1   |    32.57    | 0.9733 | 40.60 |    31.77    | 0.9694 | 45.17 |
-| Average |    31.22    | 0.9738 | 34.54 |    30.12    | 0.9691 | 39.55 |
+Here is a description of the ``dna_x_xxxx_xx.sh'' file:
 
 ## C. Experiments on ZJU-MoCap Dataset
 
