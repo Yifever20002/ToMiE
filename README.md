@@ -115,3 +115,7 @@ We also have similar scripts for ZJU_MoCap dataset.
 
 <img src="https://github.com/Yifever20002/ToMiE/blob/main/images/rotate/0811_06_tomie_rotate.gif" alt="m0811_06_gt" width="276" height="376"> <img src="https://github.com/Yifever20002/ToMiE/blob/main/images/rotate/0811_06_gauhuman_rotate.gif" alt="m0811_06_to" width="276" height="376">
 
+### Garments Animating
+
+<img src="https://github.com/Yifever20002/ToMiE/blob/main/images/animating.gif" alt="animating" width="1138" height="640">
+
