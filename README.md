@@ -36,7 +36,7 @@ Download the SMPL(-X) from [here](https://drive.google.com/drive/folders/1ULFP2r
 
 For DNA-Rendering dataset, please download it from [here](https://dna-rendering.github.io/inner-download.html). You only need to download the ``xxxx_xx.smc'' and ``xxxx_xx_annots.smc'' files for each case. Our code will automatically preprocess the data during the first run and save the images, bkgd_masks, and model in the corresponding directory.
 
-For ZJU_MoCap dataset, please refer to [mlp_maps](https://github.com/zju3dv/mlp_maps/blob/master/INSTALL.md).
+For ZJU_MoCap dataset, please refer to this [form](https://docs.google.com/forms/d/1QcTp5qIbIBn8PCT-EQgG-fOB4HZ9khpRkT3q2OnH2bs).
 
 
 ## B. Experiments
