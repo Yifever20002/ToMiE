@@ -19,7 +19,7 @@ Create a virtual environment and install the required packages
 Install submodules:
 
     export CUDA_HOME=/usr/local/cuda
-    pip install submodules/depth-diff-gaussian-rasterization
+    pip install submodules/diff-gaussian-rasterization
     pip install submodules/simple-knn
 
 Install other requirements:
