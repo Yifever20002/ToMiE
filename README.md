@@ -1,12 +1,12 @@
-# ToMiE: Towards Modular Growth in Enhanced SMPL Skeleton for 3D Human with Animatable Garments 
+# (ICCV2025) ToMiE: Towards Explicit Exoskeleton for the Reconstruction of Complicated 3D Human Avatars 
 ### [Project Page](https://arxiv.org/abs/2410.08082) | [Paper](https://arxiv.org/abs/2410.08082)
->ToMiE: Towards Modular Growth in Enhanced SMPL Skeleton for 3D Human with Animatable Garments\
+>ToMiE: Towards Explicit Exoskeleton for the Reconstruction of Complicated 3D Human Avatars\
 >[Yifan Zhan](https://yifever20002.github.io/), [Qingtian Zhu](https://qtzhu.me/), [Muyao Niu](https://myniuuu.github.io/), Mingze Ma, Jiancheng Zhao \
 >[Zhihang Zhong](https://zzh-tech.github.io/), Xiao Sun, Yu Qiao, Yinqiang Zheng
 
 ![image](https://github.com/Yifever20002/ToMiE/blob/main/images/teaser.png)
 
-In this paper, we highlight a critical yet often overlooked factor in most 3D human tasks, namely modeling humans with complex garments. It is known that the parameterized formulation of SMPL is able to fit human skin; while complex garments, e.g., hand-held objects and loose-fitting garments, are difficult to get modeled within the unified framework, since their movements are usually decoupled with the human body. To enhance the capability of SMPL skeleton in response to this situation, we propose a modular growth strategy that enables the joint tree of the skeleton to expand adaptively. Specifically, our method, called ToMiE, consists of parent joints localization and external joints optimization. For parent joints localization, we employ a gradient-based approach guided by both LBS blending weights and motion kernels. Once the external joints are obtained, we proceed to optimize their transformations in SE(3) across different frames, enabling rendering and explicit animation. ToMiE manages to outperform other methods across various cases with garments, not only in rendering quality but also by offering free animation of grown joints, thereby enhancing the expressive ability of SMPL skeleton for a broader range of applications.
+In this paper, we highlight a critical yet often overlooked factor in most 3D human tasks, namely modeling complicated 3D human with with hand-held objects or loose-fitting clothing. It is known that the parameterized formulation of SMPL is able to fit human skin; while hand-held objects and loose-fitting clothing, are difficult to get modeled within the unified framework, since their movements are usually decoupled with the human body. To enhance the capability of SMPL skeleton in response to this situation, we propose a growth strategy that enables the joint tree of the skeleton to expand adaptively. Specifically, our method, called ToMiE, consists of parent joints localization and external joints optimization.  For parent joints localization, we employ a gradient-based approach guided by both LBS blending weights and motion kernels. Once the external joints are obtained, we proceed to optimize their transformations in SE(3) across different frames, enabling rendering and explicit animation. ToMiE manages to outperform other methods across various cases with hand-held objects and loose-fitting clothing, not only in rendering quality but also by offering free animation of grown joints, thereby enhancing the expressive ability of SMPL skeleton for a broader range of applications.
 
 ## A. Prerequisite
 ### `Configure environment`
@@ -155,7 +155,7 @@ Please also cite SMPL(-X) following
       volume = {34},
       year = {2015}
     }
-
+    
     @inproceedings{SMPL-X:2019,
       title = {Expressive Body Capture: {3D} Hands, Face, and Body from a Single Image},
       author = {Pavlakos, Georgios and Choutas, Vasileios and Ghorbani, Nima and Bolkart, Timo and Osman, Ahmed A. A. and Tzionas, Dimitrios and Black, Michael J.},
