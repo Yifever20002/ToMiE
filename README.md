@@ -1,7 +1,7 @@
 # (ICCV2025) ToMiE: Towards Explicit Exoskeleton for the Reconstruction of Complicated 3D Human Avatars 
 ### [Project Page](https://arxiv.org/abs/2410.08082) | [Paper](https://arxiv.org/abs/2410.08082)
 >ToMiE: Towards Explicit Exoskeleton for the Reconstruction of Complicated 3D Human Avatars\
->[Yifan Zhan](https://yifever20002.github.io/), [Qingtian Zhu](https://qtzhu.me/), [Muyao Niu](https://myniuuu.github.io/), Mingze Ma, Jiancheng Zhao \
+>[Yifan Zhan](https://yifever20002.github.io/yifanzhan.github.io/), [Qingtian Zhu](https://qtzhu.me/), [Muyao Niu](https://myniuuu.github.io/), Mingze Ma, Jiancheng Zhao \
 >[Zhihang Zhong](https://zzh-tech.github.io/), Xiao Sun, Yu Qiao, Yinqiang Zheng
 
 ![image](https://github.com/Yifever20002/ToMiE/blob/main/images/teaser.png)
