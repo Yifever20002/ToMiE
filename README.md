@@ -49,7 +49,7 @@ For ZJU_MoCap dataset, please refer to this [form](https://docs.google.com/forms
 
     sh scripts/dna_2_0041_10_render.sh
 
-Here is a description of the ``dna_x_xxxx_xx.sh'' file:
+Here is a description of the "dna_x_xxxx_xx.sh" file:
 
     export CUDA_HOME=/usr/local/cuda
     export CUDA_VISIBLE_DEVICES=2
